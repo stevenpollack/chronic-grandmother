@@ -1,21 +1,38 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 import classes from './DropDown.module.css';
 
-const DropDown = (props) => {
+const DropDown = (props: DropDownProps) => {
     const [open, setOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setOpen(false);
+            }
+        };
+
+        if (open) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [open]);
 
     const handleOpen = () => {
         setOpen(!open);
     };
 
-    const handleSelect = (key) => {
+    const handleSelect = (key: string) => {
         props.setSelected(key);
         setOpen(false);
     };
 
     return (
-        <div className={`${classes.container} ${props.className}`} style={props.style}>
+        <div ref={dropdownRef} className={`${classes.container} ${props.className}`} style={props.style}>
             {props.label && <span>{props.label}</span>}
             <button onClick={handleOpen} className={classes.dropdown}>
                 {props.leftIcon}
@@ -53,6 +70,16 @@ const DropDown = (props) => {
             ) : null}
         </div>
     );
+};
+
+type DropDownProps = {
+    selected: string;
+    setSelected: (key: string) => void;
+    label: string;
+    options: { option: string; key: string; icon: React.ReactNode }[];
+    leftIcon: React.ReactNode;
+    className?: string;
+    style: React.CSSProperties;
 };
 
 // DropDown.propTypes = {
