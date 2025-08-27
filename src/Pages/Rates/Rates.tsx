@@ -14,10 +14,25 @@ let countries = CountryData.CountryCodes;
 
 const MARGIN = 0.005;
 
+type PaytronResponse = {
+  buyCurrency: string;
+  createdAt: string;
+  id: string;
+  indicative: boolean;
+  retailRate: number;
+  sellCurrency: string;
+  validUntil: string;
+  wholesaleRate: number;
+};
+
+const getCurrencyCode = (countryCode: string) => {
+  return countryToCurrency[countryCode as keyof typeof countryToCurrency];
+};
+
 const Rates = () => {
-  const [fromCurrency, setFromCurrency] = useState("AU");
+  const [fromCountry, setFromCountry] = useState("AU");
   const [fromAmount, setFromAmount] = useState(0);
-  const [toCurrency, setToCurrency] = useState("US");
+  const [toCountry, setToCountry] = useState("US");
 
   const [exchangeRate, setExchangeRate] = useState(0.7456);
   const [progression, setProgression] = useState(0);
@@ -33,14 +48,35 @@ const Rates = () => {
   );
 
   const fetchData = async () => {
+    const API_URL = new URL(
+      `https://rates.staging.api.paytron.com/rate/public`
+    );
+    API_URL.searchParams.set("sellCurrency", getCurrencyCode(fromCountry));
+    API_URL.searchParams.set("buyCurrency", getCurrencyCode(toCountry));
+
     if (!loading) {
       setLoading(true);
 
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      try {
+        const response = await fetch(API_URL.toString(), {
+          method: "GET",
+          headers: { accept: "application/json" },
+        });
 
-      setLoading(false);
+        const data: PaytronResponse = await response.json();
+        setExchangeRate(data.retailRate);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
     }
   };
+
+  useEffect(() => {
+    fetchData();
+    setProgression(0); // reset progress bar
+  }, [fromCountry, toCountry]);
 
   // Demo progress bar moving :)
   useAnimationFrame(!loading, (deltaTime) => {
@@ -53,6 +89,12 @@ const Rates = () => {
     });
   });
 
+  const DROPDOWN_OPTIONS = countries.map(({ code }) => ({
+    option: getCurrencyCode(code),
+    key: code,
+    icon: <Flag code={code} />,
+  }));
+
   return (
     <div className={classes.container}>
       <div className={classes.content}>
@@ -64,21 +106,12 @@ const Rates = () => {
             className={`${classes.dropdownContainer} ${classes.fromDropdown}`}
           >
             <DropDown
-              leftIcon={<Flag code={fromCurrency} />}
+              leftIcon={<Flag code={fromCountry} />}
               label={"From"}
-              selected={
-                countryToCurrency[
-                  fromCurrency as keyof typeof countryToCurrency
-                ]
-              }
-              options={countries.map(({ code }) => ({
-                option:
-                  countryToCurrency[code as keyof typeof countryToCurrency],
-                key: code,
-                icon: <Flag code={code} />,
-              }))}
+              selected={getCurrencyCode(fromCountry)}
+              options={DROPDOWN_OPTIONS}
               setSelected={(key: string) => {
-                setFromCurrency(key);
+                setFromCountry(key);
               }}
               style={{}}
             />
@@ -94,19 +127,12 @@ const Rates = () => {
           {/* To Dropdown - Top Right */}
           <div className={`${classes.dropdownContainer} ${classes.toDropdown}`}>
             <DropDown
-              leftIcon={<Flag code={toCurrency} />}
+              leftIcon={<Flag code={toCountry} />}
               label={"To"}
-              selected={
-                countryToCurrency[toCurrency as keyof typeof countryToCurrency]
-              }
-              options={countries.map(({ code }) => ({
-                option:
-                  countryToCurrency[code as keyof typeof countryToCurrency],
-                key: code,
-                icon: <Flag code={code} />,
-              }))}
+              selected={getCurrencyCode(toCountry)}
+              options={DROPDOWN_OPTIONS}
               setSelected={(key: string) => {
-                setToCurrency(key);
+                setToCountry(key);
               }}
               style={{}}
             />
