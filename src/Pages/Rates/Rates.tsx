@@ -1,20 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import DropDown from "../../Components/DropDown";
 import ProgressBar from "../../Components/ProgressBar";
 import Loader from "../../Components/Loader";
-
 import { useAnimationFrame } from "../../Hooks/useAnimationFrame";
-
+import CountryDataJson from "../../Libs/Countries.json";
+import countryToCurrency from "../../Libs/CountryCurrency.json";
 import classes from "./Rates.module.css";
 
-import CountryData from "../../Libs/Countries.json";
-import countryToCurrency from "../../Libs/CountryCurrency.json";
+const countries = (CountryDataJson as CountryData).CountryCodes;
 
-let countries = CountryData.CountryCodes;
+type CountryData = {
+  CountryCodes: Array<{
+    code: string;
+    name: string;
+  }>;
+};
 
-const MARGIN = 0.005;
-
-type PaytronResponse = {
+interface PaytronResponse {
   buyCurrency: string;
   createdAt: string;
   id: string;
@@ -23,10 +25,12 @@ type PaytronResponse = {
   sellCurrency: string;
   validUntil: string;
   wholesaleRate: number;
-};
+}
 
-const getCurrencyCode = (countryCode: string) => {
-  return countryToCurrency[countryCode as keyof typeof countryToCurrency];
+const MARGIN = 0.005;
+
+const getCurrencyCode = (countryCode: string): string => {
+  return countryToCurrency[countryCode as keyof typeof countryToCurrency] || "";
 };
 
 const Rates = () => {
@@ -37,6 +41,8 @@ const Rates = () => {
   const [exchangeRate, setExchangeRate] = useState(0.7456);
   const [progression, setProgression] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   const Flag = ({ code }: { code: string }) => (
     <img
@@ -47,31 +53,60 @@ const Rates = () => {
     />
   );
 
-  const fetchData = async () => {
-    const API_URL = new URL(
-      `https://rates.staging.api.paytron.com/rate/public`
-    );
-    API_URL.searchParams.set("sellCurrency", getCurrencyCode(fromCountry));
-    API_URL.searchParams.set("buyCurrency", getCurrencyCode(toCountry));
+  const fetchData = useCallback(
+    async (isRetry = false) => {
+      const API_URL = new URL(
+        `https://rates.staging.api.paytron.com/rate/public`
+      );
+      API_URL.searchParams.set("sellCurrency", getCurrencyCode(fromCountry));
+      API_URL.searchParams.set("buyCurrency", getCurrencyCode(toCountry));
 
-    if (!loading) {
-      setLoading(true);
+      if (!loading) {
+        setLoading(true);
+        setError(null);
 
-      try {
-        const response = await fetch(API_URL.toString(), {
-          method: "GET",
-          headers: { accept: "application/json" },
-        });
+        try {
+          const response = await fetch(API_URL.toString(), {
+            method: "GET",
+            headers: { accept: "application/json" },
+          });
 
-        const data: PaytronResponse = await response.json();
-        setExchangeRate(data.retailRate);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const data: PaytronResponse = await response.json();
+
+          // Validate response
+          if (!data.retailRate || typeof data.retailRate !== "number") {
+            throw new Error("Invalid exchange rate data received");
+          }
+
+          setExchangeRate(data.retailRate);
+          setRetryCount(0); // Reset retry count on success
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error
+              ? error.message
+              : "Failed to fetch exchange rate";
+          console.error("Exchange rate fetch error:", errorMessage);
+          setError(errorMessage);
+
+          // Auto-retry with exponential backoff (up to 3 times)
+          if (!isRetry && retryCount < 3) {
+            const retryDelay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+            setTimeout(() => {
+              setRetryCount((prev) => prev + 1);
+              fetchData(true);
+            }, retryDelay);
+          }
+        } finally {
+          setLoading(false);
+        }
       }
-    }
-  };
+    },
+    [fromCountry, toCountry, loading, retryCount]
+  );
 
   useEffect(() => {
     fetchData();
@@ -89,16 +124,30 @@ const Rates = () => {
     });
   });
 
-  const DROPDOWN_OPTIONS = countries.map(({ code }) => ({
-    option: getCurrencyCode(code),
-    key: code,
-    icon: <Flag code={code} />,
-  }));
+  // Memoize expensive calculations
+  const conversionResults = useMemo(() => {
+    const trueAmount = fromAmount * exchangeRate;
+    const ofxAmount = fromAmount * (1 - MARGIN) * exchangeRate;
+    return {
+      trueAmount: trueAmount.toFixed(2),
+      ofxAmount: ofxAmount.toFixed(2),
+    };
+  }, [fromAmount, exchangeRate]);
+
+  const DROPDOWN_OPTIONS = useMemo(
+    () =>
+      countries.map(({ code }) => ({
+        option: getCurrencyCode(code),
+        key: code,
+        icon: <Flag code={code} />,
+      })),
+    []
+  );
 
   return (
     <div className={classes.container}>
       <div className={classes.content}>
-        <div className={classes.heading}>Currency Conversion</div>
+        <h1 className={classes.heading}>Currency Conversion</h1>
 
         <div className={classes.rowWrapper}>
           {/* From Dropdown - Top Left */}
@@ -140,12 +189,18 @@ const Rates = () => {
 
           {/* Input - Bottom Left */}
           <div className={`${classes.inputContainer} ${classes.fromInput}`}>
+            <label htmlFor="amount-input" className="sr-only">
+              Amount to convert
+            </label>
             <input
+              id="amount-input"
               className={classes.amountInput}
               type="number"
               placeholder="0.00"
               value={fromAmount || ""}
               onChange={(e) => setFromAmount(Number(e.target.value) || 0)}
+              aria-label="Amount to convert"
+              aria-describedby="conversion-results"
             />
           </div>
 
@@ -155,12 +210,26 @@ const Rates = () => {
           </div>
 
           {/* Output - Bottom Right */}
-          <div className={classes.amountWrapper}>
-            <span className={classes.rate}>
-              OFX rate: {(fromAmount * (1 - MARGIN) * exchangeRate).toFixed(2)}
+          <div
+            id="conversion-results"
+            className={classes.amountWrapper}
+            aria-live="polite"
+          >
+            <span
+              className={classes.rate}
+              aria-label={`OFX conversion result: ${
+                conversionResults.ofxAmount
+              } ${getCurrencyCode(toCountry)}`}
+            >
+              OFX rate: {conversionResults.ofxAmount}
             </span>
-            <span className={classes.rate}>
-              True rate: {(fromAmount * exchangeRate).toFixed(2)}
+            <span
+              className={classes.rate}
+              aria-label={`True conversion result: ${
+                conversionResults.trueAmount
+              } ${getCurrencyCode(toCountry)}`}
+            >
+              True rate: {conversionResults.trueAmount}
             </span>
           </div>
         </div>
@@ -172,8 +241,58 @@ const Rates = () => {
         />
 
         {loading && (
-          <div className={classes.loaderWrapper}>
+          <div
+            className={classes.loaderWrapper}
+            role="status"
+            aria-live="assertive"
+          >
             <Loader width={"25px"} height={"25px"} />
+            <span className="sr-only">Loading exchange rates...</span>
+          </div>
+        )}
+
+        {error && (
+          <div
+            className={classes.errorWrapper}
+            role="alert"
+            aria-live="assertive"
+            style={{
+              marginTop: "20px",
+              padding: "12px",
+              backgroundColor: "#fee",
+              border: "1px solid #fcc",
+              borderRadius: "4px",
+              color: "#c33",
+            }}
+          >
+            <p style={{ margin: "0 0 8px 0", fontWeight: "bold" }}>
+              ⚠️ Unable to fetch latest exchange rates
+            </p>
+            <p style={{ margin: "0 0 8px 0", fontSize: "14px" }}>{error}</p>
+            {retryCount < 3 && (
+              <p style={{ margin: "0", fontSize: "12px", fontStyle: "italic" }}>
+                Retrying automatically... (Attempt {retryCount + 1}/3)
+              </p>
+            )}
+            {retryCount >= 3 && (
+              <button
+                onClick={() => {
+                  setRetryCount(0);
+                  fetchData();
+                }}
+                style={{
+                  padding: "6px 12px",
+                  backgroundColor: "#3498db",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "3px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                }}
+              >
+                Try Again
+              </button>
+            )}
           </div>
         )}
       </div>
