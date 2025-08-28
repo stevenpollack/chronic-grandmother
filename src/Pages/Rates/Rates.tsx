@@ -58,76 +58,69 @@ const Rates = (props: RatesProps) => {
   const [fromAmount, setFromAmount] = useState(0);
   const [toCountry, setToCountry] = useState("US");
 
-  const [exchangeRate, setExchangeRate] = useState(0.7456);
+  const [exchangeRate, setExchangeRate] = useState(0);
   const [progression, setProgression] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
-  const fetchData = useCallback(
-    async (isRetry = false) => {
-      API_URL.searchParams.set("sellCurrency", getCurrencyCode(fromCountry));
-      API_URL.searchParams.set("buyCurrency", getCurrencyCode(toCountry));
+  const fetchData = useCallback(async () => {
+    API_URL.searchParams.set("sellCurrency", getCurrencyCode(fromCountry));
+    API_URL.searchParams.set("buyCurrency", getCurrencyCode(toCountry));
 
-      if (!loading) {
-        setLoading(true);
-        setError(null);
+    if (!loading) {
+      setLoading(true);
+      setError(null);
 
-        try {
-          const response = await fetch(API_URL.toString(), {
-            method: "GET",
-            headers: { accept: "application/json" },
-          });
+      try {
+        const response = await fetch(API_URL.toString(), {
+          method: "GET",
+          headers: { accept: "application/json" },
+        });
 
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-
-          const data: ApiResponse = await response.json();
-
-          // Validate response
-          if (!data.retailRate || typeof data.retailRate !== "number") {
-            throw new Error("Invalid exchange rate data received");
-          }
-
-          setExchangeRate(data.retailRate);
-          setRetryCount(0); // Reset retry count on success
-        } catch (error) {
-          const errorMessage =
-            error instanceof Error
-              ? error.message
-              : "Failed to fetch exchange rate";
-          console.error("Exchange rate fetch error:", errorMessage);
-          setError(errorMessage);
-
-          // Auto-retry with exponential backoff (up to 3 times)
-          if (!isRetry && retryCount < maxRetries) {
-            const retryDelay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
-            setTimeout(() => {
-              setRetryCount((prev) => prev + 1);
-              fetchData(true);
-            }, retryDelay);
-          }
-        } finally {
-          setLoading(false);
+        if (!response.ok) {
+          throw new Error(`HTTP error... Response status: ${response.status}`);
         }
+
+        const data: ApiResponse = await response.json();
+
+        // Validate response
+        if (!data.retailRate || typeof data.retailRate !== "number") {
+          throw new Error("Invalid exchange rate data received");
+        }
+
+        setExchangeRate(data.retailRate);
+        setRetryCount(0); // Reset retry count on success
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch exchange rate";
+        console.error("Exchange rate fetch error:", errorMessage);
+        setError(errorMessage);
+        setExchangeRate(NaN);
+
+        // Increment retry count for next attempt
+        if (retryCount < maxRetries) {
+          setRetryCount((prev) => prev + 1);
+        }
+      } finally {
+        setLoading(false);
       }
-    },
-    [fromCountry, toCountry, loading, retryCount]
-  );
+    }
+  }, [fromCountry, toCountry, loading, retryCount, maxRetries]);
 
   useEffect(() => {
     fetchData();
     setProgression(0); // reset progress bar
   }, [fromCountry, toCountry]);
 
-  // Demo progress bar moving :)
+  // Progress bar with retry multipliers: 1.5x, 2.25x, 3.375x
   useAnimationFrame(!loading, (deltaTime) => {
-    const PROGRESS_RATE = 1 / refreshRate;
+    const adjustedRefreshRate = refreshRate * Math.pow(1.5, retryCount);
+    const PROGRESS_RATE = 1 / adjustedRefreshRate;
+
     setProgression((prevState) => {
-      if (retryCount > 0) {
-        return 0;
-      }
       if (prevState > 0.998) {
         fetchData();
         return 0;
@@ -223,7 +216,7 @@ const Rates = (props: RatesProps) => {
           {/* Exchange Rate - Bottom Center */}
           <div className={classes.exchangeWrapperBottom}>
             <div className={classes.rate} data-testid="exchange-rate">
-              {exchangeRate}
+              {exchangeRate.toString()}
             </div>
           </div>
 
@@ -252,7 +245,7 @@ const Rates = (props: RatesProps) => {
           </div>
         </div>
 
-        {retryCount === 0 && (
+        {retryCount < maxRetries && (
           <ProgressBar
             progress={progression}
             animationClass={loading ? classes.slow : ""}
@@ -300,6 +293,7 @@ const Rates = (props: RatesProps) => {
               onClick={() => {
                 setRetryCount(0);
                 setProgression(0);
+                setError(null);
                 fetchData();
               }}
               data-testid="retry-button"
