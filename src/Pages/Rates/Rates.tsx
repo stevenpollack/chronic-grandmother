@@ -17,7 +17,7 @@ type CountryData = {
   }>;
 };
 
-interface PaytronResponse {
+export type ApiResponse = {
   buyCurrency: string;
   createdAt: string;
   id: string;
@@ -26,7 +26,11 @@ interface PaytronResponse {
   sellCurrency: string;
   validUntil: string;
   wholesaleRate: number;
-}
+};
+
+export const API_URL = new URL(
+  "https://rates.staging.api.paytron.com/rate/public"
+);
 
 const MARGIN = 0.005;
 
@@ -34,7 +38,22 @@ const getCurrencyCode = (countryCode: string): string => {
   return countryToCurrency[countryCode as keyof typeof countryToCurrency] || "";
 };
 
-const Rates = () => {
+type RatesProps = {
+  /**
+   * The rate of the exchange rate to refresh in milliseconds.
+   * Default is 10_000ms (10 seconds).
+   */
+  refreshRate?: number;
+  /**
+   * The maximum number of retries to attempt when the API call fails.
+   * Default is 3.
+   */
+  maxRetries?: number;
+};
+
+const Rates = (props: RatesProps) => {
+  const { refreshRate = 10_000, maxRetries = 3 } = props;
+
   const [fromCountry, setFromCountry] = useState("AU");
   const [fromAmount, setFromAmount] = useState(0);
   const [toCountry, setToCountry] = useState("US");
@@ -47,9 +66,6 @@ const Rates = () => {
 
   const fetchData = useCallback(
     async (isRetry = false) => {
-      const API_URL = new URL(
-        `https://rates.staging.api.paytron.com/rate/public`
-      );
       API_URL.searchParams.set("sellCurrency", getCurrencyCode(fromCountry));
       API_URL.searchParams.set("buyCurrency", getCurrencyCode(toCountry));
 
@@ -67,7 +83,7 @@ const Rates = () => {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
 
-          const data: PaytronResponse = await response.json();
+          const data: ApiResponse = await response.json();
 
           // Validate response
           if (!data.retailRate || typeof data.retailRate !== "number") {
@@ -85,7 +101,7 @@ const Rates = () => {
           setError(errorMessage);
 
           // Auto-retry with exponential backoff (up to 3 times)
-          if (!isRetry && retryCount < 3) {
+          if (!isRetry && retryCount < maxRetries) {
             const retryDelay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
             setTimeout(() => {
               setRetryCount((prev) => prev + 1);
@@ -107,12 +123,16 @@ const Rates = () => {
 
   // Demo progress bar moving :)
   useAnimationFrame(!loading, (deltaTime) => {
+    const PROGRESS_RATE = 1 / refreshRate;
     setProgression((prevState) => {
+      if (retryCount > 0) {
+        return 0;
+      }
       if (prevState > 0.998) {
         fetchData();
         return 0;
       }
-      return (prevState + deltaTime * 0.0001) % 1;
+      return (prevState + deltaTime * PROGRESS_RATE) % 1;
     });
   });
 
@@ -153,6 +173,8 @@ const Rates = () => {
               options={DROPDOWN_OPTIONS}
               setSelected={(key: string) => {
                 setFromCountry(key);
+                setRetryCount(0);
+                setProgression(0);
               }}
               style={{}}
             />
@@ -174,6 +196,8 @@ const Rates = () => {
               options={DROPDOWN_OPTIONS}
               setSelected={(key: string) => {
                 setToCountry(key);
+                setRetryCount(0);
+                setProgression(0);
               }}
               style={{}}
             />
@@ -198,7 +222,9 @@ const Rates = () => {
 
           {/* Exchange Rate - Bottom Center */}
           <div className={classes.exchangeWrapperBottom}>
-            <div className={classes.rate}>{exchangeRate}</div>
+            <div className={classes.rate} data-testid="exchange-rate">
+              {exchangeRate}
+            </div>
           </div>
 
           {/* Output - Bottom Right */}
@@ -226,11 +252,13 @@ const Rates = () => {
           </div>
         </div>
 
-        <ProgressBar
-          progress={progression}
-          animationClass={loading ? classes.slow : ""}
-          style={{ marginTop: "20px" }}
-        />
+        {retryCount === 0 && (
+          <ProgressBar
+            progress={progression}
+            animationClass={loading ? classes.slow : ""}
+            style={{ marginTop: "20px" }}
+          />
+        )}
 
         {loading && (
           <div
@@ -248,6 +276,7 @@ const Rates = () => {
             className={classes.errorWrapper}
             role="alert"
             aria-live="assertive"
+            data-testid="error-message"
             style={{
               marginTop: "20px",
               padding: "12px",
@@ -261,30 +290,31 @@ const Rates = () => {
               ⚠️ Unable to fetch latest exchange rates
             </p>
             <p style={{ margin: "0 0 8px 0", fontSize: "14px" }}>{error}</p>
-            {retryCount < 3 && (
+            {retryCount < maxRetries && (
               <p style={{ margin: "0", fontSize: "12px", fontStyle: "italic" }}>
-                Retrying automatically... (Attempt {retryCount + 1}/3)
+                Retrying automatically... (Attempt {retryCount + 1}/{maxRetries}
+                )
               </p>
             )}
-            {retryCount >= 3 && (
-              <button
-                onClick={() => {
-                  setRetryCount(0);
-                  fetchData();
-                }}
-                style={{
-                  padding: "6px 12px",
-                  backgroundColor: "#3498db",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "3px",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                }}
-              >
-                Try Again
-              </button>
-            )}
+            <button
+              onClick={() => {
+                setRetryCount(0);
+                setProgression(0);
+                fetchData();
+              }}
+              data-testid="retry-button"
+              style={{
+                padding: "6px 12px",
+                backgroundColor: "#3498db",
+                color: "white",
+                border: "none",
+                borderRadius: "3px",
+                cursor: "pointer",
+                fontSize: "12px",
+              }}
+            >
+              Try Again
+            </button>
           </div>
         )}
       </div>
