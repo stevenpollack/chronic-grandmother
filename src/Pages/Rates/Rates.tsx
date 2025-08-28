@@ -166,10 +166,11 @@ const Rates = (props: RatesProps) => {
             </label>
             <input
               id="amount-input"
+              data-testid="amount-input"
               className={classes.amountInput}
               type="number"
               placeholder="0.00"
-              value={fromAmount || ""}
+              value={fromAmount}
               onChange={(e) => setFromAmount(Number(e.target.value) || 0)}
               aria-label="Amount to convert"
               aria-describedby="conversion-results"
@@ -191,6 +192,7 @@ const Rates = (props: RatesProps) => {
           >
             <span
               className={classes.rate}
+              data-testid="ofx-rate"
               aria-label={`OFX conversion result: ${
                 conversionResults.ofxAmount
               } ${getCurrencyCode(toCountry)}`}
@@ -199,6 +201,7 @@ const Rates = (props: RatesProps) => {
             </span>
             <span
               className={classes.rate}
+              data-testid="true-rate"
               aria-label={`True conversion result: ${
                 conversionResults.trueAmount
               } ${getCurrencyCode(toCountry)}`}

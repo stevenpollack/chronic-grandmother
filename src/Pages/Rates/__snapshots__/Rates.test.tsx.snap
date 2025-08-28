@@ -163,10 +163,11 @@ exports[`Rates > renders correctly with default props 1`] = `
             aria-describedby="conversion-results"
             aria-label="Amount to convert"
             class="_amountInput_3590bb"
+            data-testid="amount-input"
             id="amount-input"
             placeholder="0.00"
             type="number"
-            value=""
+            value="0"
           />
         </div>
         <div
@@ -187,12 +188,14 @@ exports[`Rates > renders correctly with default props 1`] = `
           <span
             aria-label="OFX conversion result: 0.00 USD"
             class="_rate_3590bb"
+            data-testid="ofx-rate"
           >
             OFX rate: 0.00
           </span>
           <span
             aria-label="True conversion result: 0.00 USD"
             class="_rate_3590bb"
+            data-testid="true-rate"
           >
             True rate: 0.00
           </span>
