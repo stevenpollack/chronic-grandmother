@@ -3,6 +3,7 @@ import Rates, { API_URL, ApiResponse } from "./Rates";
 import { render, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import userEvent from "@testing-library/user-event";
+import { axe } from "vitest-axe";
 
 describe("Rates", () => {
   const RETAIL_RATE = 0.6543;
@@ -48,7 +49,9 @@ describe("Rates", () => {
 
   it("renders correctly with default props", async () => {
     server.use(successfulResponse);
-    const { asFragment, getByTestId } = render(<Rates refreshRate={10} />);
+    const { asFragment, getByTestId, container } = render(
+      <Rates refreshRate={10} />
+    );
 
     await waitFor(() => {
       expect(getByTestId("exchange-rate")).toHaveTextContent(
@@ -57,6 +60,7 @@ describe("Rates", () => {
     });
 
     expect(asFragment()).toMatchSnapshot();
+    expect(await axe(container)).toHaveNoViolations();
   });
 
   it("renders an error message when the API call fails", async () => {
