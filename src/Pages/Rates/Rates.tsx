@@ -6,6 +6,7 @@ import { useAnimationFrame } from "../../Hooks/useAnimationFrame";
 import CountryDataJson from "../../Libs/Countries.json";
 import countryToCurrency from "../../Libs/CountryCurrency.json";
 import classes from "./Rates.module.css";
+import { Flag } from "../../Components/Flag/Flag";
 
 const countries = (CountryDataJson as CountryData).CountryCodes;
 
@@ -43,15 +44,6 @@ const Rates = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
-
-  const Flag = ({ code }: { code: string }) => (
-    <img
-      alt={code || ""}
-      src={`/img/flags/${code || ""}.svg`}
-      width="20px"
-      className={classes.flag}
-    />
-  );
 
   const fetchData = useCallback(
     async (isRetry = false) => {
