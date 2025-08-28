@@ -3,40 +3,12 @@ import DropDown from "../../Components/DropDown";
 import ProgressBar from "../../Components/ProgressBar";
 import Loader from "../../Components/Loader";
 import { useAnimationFrame } from "../../Hooks/useAnimationFrame";
-import CountryDataJson from "../../Libs/Countries.json";
-import countryToCurrency from "../../Libs/CountryCurrency.json";
+
 import classes from "./Rates.module.css";
 import { Flag } from "../../Components/Flag/Flag";
-
-const countries = (CountryDataJson as CountryData).CountryCodes;
-
-type CountryData = {
-  CountryCodes: Array<{
-    code: string;
-    name: string;
-  }>;
-};
-
-export type ApiResponse = {
-  buyCurrency: string;
-  createdAt: string;
-  id: string;
-  indicative: boolean;
-  retailRate: number;
-  sellCurrency: string;
-  validUntil: string;
-  wholesaleRate: number;
-};
-
-export const API_URL = new URL(
-  "https://rates.staging.api.paytron.com/rate/public"
-);
-
-const MARGIN = 0.005;
-
-const getCurrencyCode = (countryCode: string): string => {
-  return countryToCurrency[countryCode as keyof typeof countryToCurrency] || "";
-};
+import { calculateMarkup } from "../../Utils/markup-calculator";
+import { COUNTRIES, getCurrencyCode } from "../../Utils/country-info";
+import { getExchangeRate } from "../../api/get-exchange-rate";
 
 type RatesProps = {
   /**
@@ -49,10 +21,15 @@ type RatesProps = {
    * Default is 3.
    */
   maxRetries?: number;
+  /**
+   * The margin to apply to the exchange rate.
+   * Default is 0.005.
+   */
+  margin?: number;
 };
 
 const Rates = (props: RatesProps) => {
-  const { refreshRate = 10_000, maxRetries = 3 } = props;
+  const { refreshRate = 10_000, maxRetries = 3, margin = 0.005 } = props;
 
   const [fromCountry, setFromCountry] = useState("AU");
   const [fromAmount, setFromAmount] = useState(0);
@@ -65,31 +42,17 @@ const Rates = (props: RatesProps) => {
   const [retryCount, setRetryCount] = useState(0);
 
   const fetchData = useCallback(async () => {
-    API_URL.searchParams.set("sellCurrency", getCurrencyCode(fromCountry));
-    API_URL.searchParams.set("buyCurrency", getCurrencyCode(toCountry));
-
     if (!loading) {
       setLoading(true);
       setError(null);
 
       try {
-        const response = await fetch(API_URL.toString(), {
-          method: "GET",
-          headers: { accept: "application/json" },
+        const exchangeRate = await getExchangeRate({
+          sellCurrency: getCurrencyCode(fromCountry),
+          buyCurrency: getCurrencyCode(toCountry),
         });
 
-        if (!response.ok) {
-          throw new Error(`HTTP error... Response status: ${response.status}`);
-        }
-
-        const data: ApiResponse = await response.json();
-
-        // Validate response
-        if (!data.retailRate || typeof data.retailRate !== "number") {
-          throw new Error("Invalid exchange rate data received");
-        }
-
-        setExchangeRate(data.retailRate);
+        setExchangeRate(exchangeRate);
         setRetryCount(0); // Reset retry count on success
       } catch (error) {
         const errorMessage =
@@ -132,7 +95,7 @@ const Rates = (props: RatesProps) => {
   // Memoize expensive calculations
   const conversionResults = useMemo(() => {
     const trueAmount = fromAmount * exchangeRate;
-    const ofxAmount = fromAmount * (1 - MARGIN) * exchangeRate;
+    const ofxAmount = fromAmount * calculateMarkup({ exchangeRate, margin });
     return {
       trueAmount: trueAmount.toFixed(2),
       ofxAmount: ofxAmount.toFixed(2),
@@ -141,7 +104,7 @@ const Rates = (props: RatesProps) => {
 
   const DROPDOWN_OPTIONS = useMemo(
     () =>
-      countries.map(({ code }) => ({
+      COUNTRIES.map(({ code }) => ({
         option: getCurrencyCode(code),
         key: code,
         icon: <Flag code={code} />,

@@ -1,20 +1,21 @@
 import { server } from "../../mocks/node";
-import Rates, { API_URL, ApiResponse } from "./Rates";
+import Rates from "./Rates";
 import { render, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import userEvent from "@testing-library/user-event";
 import { axe } from "vitest-axe";
+import { API_URL } from "../../api/get-exchange-rate";
 
 describe("Rates", () => {
   const RETAIL_RATE = 0.6543;
-  const apiPath = API_URL.toString();
+  const apiPath = API_URL;
   const spy = vi.fn();
 
   const successfulResponse = http.get(apiPath, ({ request }) => {
     const requestURL = request.url;
     const url = new URL(requestURL);
     spy(requestURL);
-    return HttpResponse.json<ApiResponse>({
+    return HttpResponse.json({
       buyCurrency: url.searchParams.get("buyCurrency") || "",
       createdAt: "2021-01-01",
       id: "1",
