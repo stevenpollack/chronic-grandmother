@@ -2,6 +2,7 @@ import DropDown, { DropDownProps } from "./DropDown";
 import userEvent from "@testing-library/user-event";
 import { render, waitFor } from "@testing-library/react";
 import { Flag } from "../Flag/Flag";
+import { axe } from "vitest-axe";
 
 const OPTIONS: DropDownProps["options"] = [
   { option: "AUD", key: "AU", icon: <Flag code="AU" /> },
@@ -33,8 +34,8 @@ describe("DropDown", () => {
     vi.clearAllMocks();
   });
 
-  it("renders correctly with provided props", () => {
-    const { getByTestId, asFragment } = renderDropDown();
+  it("renders correctly with provided props", async () => {
+    const { getByTestId, asFragment, container } = renderDropDown();
 
     expect(getByTestId(`${defaultProps.label}-value`)).toHaveTextContent(
       defaultProps.selected
@@ -45,6 +46,7 @@ describe("DropDown", () => {
 
     // match snapshot
     expect(asFragment()).toMatchSnapshot();
+    expect(await axe(container)).toHaveNoViolations();
   });
 
   it("presents options when button is clicked", async () => {
