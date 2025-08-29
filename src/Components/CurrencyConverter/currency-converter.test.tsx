@@ -1,5 +1,5 @@
 import { server } from "../../mocks/node";
-import Rates from "./Rates";
+import CurrencyConverter from "./currency-converter";
 import { render, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import userEvent, { UserEvent } from "@testing-library/user-event";
@@ -49,7 +49,7 @@ describe("Rates", () => {
 
   it("calls the rates API on render", async () => {
     server.use(successfulResponse);
-    render(<Rates refreshRate={10} />);
+    render(<CurrencyConverter refreshRate={10} />);
     await waitFor(() => {
       expect(spy).toHaveBeenCalled();
     });
@@ -58,7 +58,7 @@ describe("Rates", () => {
   it("renders correctly with default props", async () => {
     server.use(successfulResponse);
     const { asFragment, getByTestId, container } = render(
-      <Rates refreshRate={10} />
+      <CurrencyConverter refreshRate={10} />
     );
 
     await waitFor(() => {
@@ -73,7 +73,9 @@ describe("Rates", () => {
 
   it("renders an error message when the API call fails", async () => {
     server.use(errorResponse);
-    const { getByTestId } = render(<Rates refreshRate={10} maxRetries={1} />);
+    const { getByTestId } = render(
+      <CurrencyConverter refreshRate={10} maxRetries={1} />
+    );
 
     await waitFor(() => {
       expect(getByTestId("error-message")).toBeVisible();
@@ -82,7 +84,9 @@ describe("Rates", () => {
 
   it("renders a functional retry button when API call fails", async () => {
     server.use(errorResponse);
-    const { getByTestId } = render(<Rates refreshRate={250} maxRetries={1} />);
+    const { getByTestId } = render(
+      <CurrencyConverter refreshRate={250} maxRetries={1} />
+    );
 
     await waitFor(() => {
       expect(getByTestId("retry-button")).toBeInTheDocument();
@@ -108,7 +112,9 @@ describe("Rates", () => {
       });
     const expectedTrueRate = USER_AMOUNT * RETAIL_RATE;
 
-    const { getByTestId } = render(<Rates refreshRate={10} margin={MARGIN} />);
+    const { getByTestId } = render(
+      <CurrencyConverter refreshRate={10} margin={MARGIN} />
+    );
 
     await user.type(getByTestId("amount-input"), USER_AMOUNT.toString());
 

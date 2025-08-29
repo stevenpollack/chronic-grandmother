@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Rates from "./Pages/Rates";
+import RatesPage from "./Pages/Rates/Page";
 import ErrorBoundary from "./Components/ErrorBoundary";
 
 import MainLayout from "./Layouts/MainLayout";
@@ -14,7 +14,7 @@ const App = () => (
           path="/rates"
           element={
             <MainLayout title="Rates">
-              <Rates />
+              <RatesPage />
             </MainLayout>
           }
         />
@@ -22,7 +22,7 @@ const App = () => (
           path="/"
           element={
             <MainLayout title="Rates">
-              <Rates />
+              <RatesPage />
             </MainLayout>
           }
         />
