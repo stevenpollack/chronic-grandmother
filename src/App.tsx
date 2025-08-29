@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import RatesPage from "./Pages/Rates/Page";
+import RatesPage from "./Pages/Rates/rates-page";
 import ErrorBoundary from "./Components/ErrorBoundary";
 
 import MainLayout from "./Layouts/MainLayout";
