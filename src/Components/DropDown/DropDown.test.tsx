@@ -23,9 +23,11 @@ describe("DropDown", () => {
 
   function renderDropDown(props?: DropDownProps) {
     const mergedProps = { ...defaultProps, ...props };
+    const dataTestId = `${mergedProps.label}-dropdown-button`;
 
     return {
       user: userEvent.setup(),
+      dataTestId,
       ...render(<DropDown {...mergedProps} />),
     };
   }
@@ -35,14 +37,14 @@ describe("DropDown", () => {
   });
 
   it("renders correctly with provided props", async () => {
-    const { getByTestId, asFragment, container } = renderDropDown();
+    const { getByTestId, asFragment, container, dataTestId } = renderDropDown();
 
     expect(getByTestId(`${defaultProps.label}-value`)).toHaveTextContent(
       defaultProps.selected
     );
     expect(getByTestId(`${OPTIONS[0].key}-flag-icon`)).toBeVisible();
-    expect(getByTestId("dropdown-button")).toBeVisible();
-    expect(getByTestId("dropdown-button")).toBeEnabled();
+    expect(getByTestId(dataTestId)).toBeVisible();
+    expect(getByTestId(dataTestId)).toBeEnabled();
 
     // match snapshot
     expect(asFragment()).toMatchSnapshot();
@@ -50,9 +52,9 @@ describe("DropDown", () => {
   });
 
   it("presents options when button is clicked", async () => {
-    const { user, getByTestId, getByText } = renderDropDown();
+    const { user, getByTestId, getByText, dataTestId } = renderDropDown();
 
-    await user.click(getByTestId("dropdown-button"));
+    await user.click(getByTestId(dataTestId));
 
     await waitFor(() => {
       // we don't need to test the first option as it is already selected
@@ -63,9 +65,9 @@ describe("DropDown", () => {
   });
 
   it("calls setSelected when option is clicked", async () => {
-    const { user, getByTestId, getByText } = renderDropDown();
+    const { user, getByTestId, getByText, dataTestId } = renderDropDown();
 
-    await user.click(getByTestId("dropdown-button"));
+    await user.click(getByTestId(dataTestId));
 
     await waitFor(async () => {
       const usdOption = getByText(OPTIONS[1].option);
@@ -76,10 +78,10 @@ describe("DropDown", () => {
   });
 
   it("closes dropdown when option is selected", async () => {
-    const { user, getByTestId, getByText, queryByRole, getByRole } =
+    const { user, getByTestId, getByText, queryByRole, getByRole, dataTestId } =
       renderDropDown();
 
-    await user.click(getByTestId("dropdown-button"));
+    await user.click(getByTestId(dataTestId));
 
     await waitFor(async () => {
       expect(getByRole("listbox")).toBeInTheDocument();
@@ -93,10 +95,10 @@ describe("DropDown", () => {
   });
 
   it("closes dropdown when clicking outside", async () => {
-    const { user, getByTestId, queryByRole, getByRole, container } =
+    const { user, getByTestId, queryByRole, getByRole, container, dataTestId } =
       renderDropDown();
 
-    await user.click(getByTestId("dropdown-button"));
+    await user.click(getByTestId(dataTestId));
 
     await waitFor(() => {
       expect(getByRole("listbox")).toBeInTheDocument();
@@ -111,17 +113,17 @@ describe("DropDown", () => {
   });
 
   it("toggles dropdown state when clicking button multiple times", async () => {
-    const { user, getByTestId, queryByRole, getByRole, container } =
+    const { user, getByTestId, queryByRole, getByRole, dataTestId } =
       renderDropDown();
 
     // Open dropdown
-    await user.click(getByTestId("dropdown-button"));
+    await user.click(getByTestId(dataTestId));
     await waitFor(() => {
       expect(getByRole("listbox")).toBeInTheDocument();
     });
 
     // Close dropdown
-    await user.click(getByTestId("dropdown-button"));
+    await user.click(getByTestId(dataTestId));
     await waitFor(() => {
       expect(queryByRole("listbox")).toBeNull();
     });

@@ -5,6 +5,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
     plugins: [react(), tsconfigPaths()],
     test: {
+        include: ["**\/*.@(test).?(c|m)[jt]s?(x)"],
         globals: true, // allows us to use vitest library methods in unit test without explicit imports
         environment: 'jsdom',
         setupFiles: './tests/setup.ts', // path to setup file

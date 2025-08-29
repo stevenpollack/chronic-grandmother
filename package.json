@@ -18,7 +18,8 @@
         "serve": "vite preview",
         "typecheck": "tsc --noEmit",
         "test": "vitest",
-        "test:coverage": "vitest run --coverage --watch=false"
+        "test:coverage": "vitest run --coverage --watch=false",
+        "test:e2e": "playwright test"
     },
     "eslintConfig": {
         "extends": [
@@ -39,6 +40,7 @@
         ]
     },
     "devDependencies": {
+        "@playwright/test": "1.55.0",
         "@testing-library/jest-dom": "^6.6.3",
         "@testing-library/react": "^16.2.0",
         "@testing-library/user-event": "14.6.1",

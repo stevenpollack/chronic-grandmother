@@ -68,7 +68,7 @@ const DropDown = (props: DropDownProps) => {
         aria-expanded={open}
         aria-labelledby={props.label ? `${props.label}-label` : undefined}
         aria-describedby={`${props.label}-value`}
-        data-testid="dropdown-button"
+        data-testid={`${props.label}-dropdown-button`}
       >
         {props.leftIcon}
         <span

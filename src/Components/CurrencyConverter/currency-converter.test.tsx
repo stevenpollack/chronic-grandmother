@@ -7,7 +7,7 @@ import { axe } from "vitest-axe";
 import { API_URL } from "../../api/get-exchange-rate";
 import { calculateMarkup } from "../../Utils/markup-calculator";
 
-describe("Rates", () => {
+describe("CurrencyConverter", () => {
   const RETAIL_RATE = 0.6543;
   const MARGIN = 0.005;
   const apiPath = API_URL;
